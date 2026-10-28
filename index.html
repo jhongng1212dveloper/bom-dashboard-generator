@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOM Dashboard Generator</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f4f5f7;color:#101828;
+    font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:26px 22px 60px}
+  h1{font-size:20px;margin:0 0 4px;letter-spacing:-.25px;font-weight:680}
+  .sub{color:#667085;font-size:13px;margin:0 0 20px}
+  .card{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.07em;color:#667085;margin:0 0 12px;font-weight:700}
+  .card h2 b{color:#101828}
+  #drop{border:2px dashed #d0d5dd;border-radius:10px;padding:22px;text-align:center;color:#667085;font-size:13px;
+    cursor:pointer;transition:.15s;background:#fcfcfd}
+  #drop:hover,#drop.hot{border-color:#93b4fd;background:#f5f9ff;color:#1d4ed8}
+  #drop b{color:#344054}
+  textarea{width:100%;height:130px;margin-top:10px;border:1px solid #e4e7ec;border-radius:9px;padding:10px 12px;
+    font:12px/1.5 "SF Mono",ui-monospace,Consolas,monospace;resize:vertical;outline:none;color:#101828}
+  textarea:focus{border-color:#93b4fd;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+  .fld{display:flex;flex-direction:column;gap:5px;flex:1;min-width:150px}
+  .fld label{font-size:11.5px;font-weight:650;color:#475467}
+  .fld input{border:1px solid #e4e7ec;border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;outline:none}
+  .fld input:focus{border-color:#93b4fd;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .fld small{color:#98a2b3;font-size:11px}
+  .btn{border:1px solid #e4e7ec;background:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-size:13px;
+    font-weight:600;color:#475467;cursor:pointer;transition:.12s}
+  .btn:hover{background:#f8fafc;border-color:#d0d5dd}
+  .btn.primary{background:#1d4ed8;border-color:#1d4ed8;color:#fff}
+  .btn.primary:hover{background:#1e40af}
+  #log{margin-top:12px;font-size:12.5px;line-height:1.6;display:none;border-radius:9px;padding:11px 13px}
+  #log.ok{display:block;background:#ecfdf3;border:1px solid #abefc6;color:#067647}
+  #log.warn{display:block;background:#fffaeb;border:1px solid #fedf89;color:#b54708}
+  #log.err{display:block;background:#fef3f2;border:1px solid #fecdca;color:#b42318}
+  #log b{font-weight:700}
+  #log code{background:rgba(0,0,0,.05);border-radius:4px;padding:1px 5px;font-size:11.5px}
+  .hint{font-size:11.5px;color:#98a2b3;margin-top:9px;line-height:1.6}
+  .hint b{color:#667085}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BOM Dashboard Generator</h1>
+  <p class="sub">Turns a BOM table into the self-contained dashboard. Nothing leaves this page.</p>
+
+  <div class="card">
+    <h2><b>1</b> &middot; Load the BOM</h2>
+    <div id="drop">Drop an <b>.xlsx</b>, <b>.csv</b> or <b>.tsv</b> file here, or click to choose<br>
+      <span style="font-size:11.5px;color:#98a2b3">or paste below &mdash; from Excel, or straight from the web page</span></div>
+    <input type="file" id="file" accept=".xlsx,.csv,.tsv,.txt" style="display:none">
+    <textarea id="paste" placeholder="Paste here. Excel: select the range including the header row, Ctrl+C, Ctrl+V.  Web page: select the table and copy — wrapped cells are stitched back automatically."></textarea>
+    <div class="hint">
+      <b>Accepts three things:</b> a workbook (.xlsx), a delimited file (.csv / .tsv), or pasted text.<br>
+      Columns are matched <b>by header name</b> &mdash; <b>Module</b>, <b>Supplier Part No.</b>, <b>Item Description</b>, <b>Manufacturer</b>, <b>Manufacturer Part No.</b>, <b>Total Qty</b>, <b>Status</b>. Extra columns and any column order are fine.<br>
+      <b>Web copies:</b> when the site wraps a cell over several lines, the fragments are rejoined automatically and the count is reported below.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><b>2</b> &middot; Options</h2>
+    <div class="row">
+      <div class="fld">
+        <label>Exclude modules</label>
+        <input id="excl" placeholder="e.g. 7000  (blank = keep all)">
+        <small>Comma-separated module numbers</small>
+      </div>
+      <div class="fld">
+        <label>Version label</label>
+        <input id="ver" value="0.01">
+        <small>v0.01, v0.02 … or v1.00 at a major release</small>
+      </div>
+      <div class="fld">
+        <label>Output file name</label>
+        <input id="fname" value="BOM Status Dashboard v0.01.html">
+        <small>Never overwrite — keep the version in the name</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><b>3</b> &middot; Build</h2>
+    <div class="row">
+      <button class="btn primary" id="build">Build &amp; download</button>
+      <button class="btn" id="preview">Preview in a new tab</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script type="text/plain" id="tpl"><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DOAS BOM — Procurement Status Overview</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:#f4f5f7;color:#101828;
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:"SF Mono",ui-monospace,Consolas,"Roboto Mono",monospace}
+  .wrap{max-width:1460px;margin:0 auto;padding:22px 26px 44px}
+
+  /* ---------- header ---------- */
+  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:18px}
+  .brand{display:flex;gap:13px;align-items:center}
+  .mark{width:42px;height:42px;border-radius:11px;background:#111827;display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 1px 2px rgba(16,24,40,.18)}
+  .mark svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  h1{font-size:19.5px;line-height:1.25;margin:0;letter-spacing:-.25px;font-weight:680}
+  .sub{color:#667085;font-size:12.5px;margin:3px 0 0}
+  .sub b{color:#344054;font-weight:600}
+  .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+  .tag{background:#fff;border:1px solid #e4e7ec;border-radius:8px;padding:6px 11px;font-size:11.5px;color:#475467;font-weight:550;display:flex;gap:6px;align-items:center}
+  .tag .k{color:#98a2b3;font-weight:500}
+  .tag.live::before{content:"";width:6px;height:6px;border-radius:50%;background:#12b76a;box-shadow:0 0 0 3px rgba(18,183,106,.15)}
+  .tag.warn{background:#fffaeb;border-color:#fedf89;color:#b54708;font-weight:600}
+  .tag.warn::before{content:"";width:6px;height:6px;border-radius:50%;background:#f79009}
+
+  /* ---------- kpi ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin-bottom:14px}
+  .kpi{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:13px 15px 14px;position:relative;overflow:hidden}
+  .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--a,#98a2b3)}
+  .kpi .lab{font-size:10.5px;color:#667085;text-transform:uppercase;letter-spacing:.07em;font-weight:650}
+  .kpi .val{font-size:25px;font-weight:700;letter-spacing:-.6px;margin-top:5px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .kpi .note{font-size:11px;color:#98a2b3;margin-top:3px}
+  .kpi .note b{color:#475467;font-weight:600}
+
+  /* ---------- card ---------- */
+  .card{background:#fff;border:1px solid #e4e7ec;border-radius:12px;padding:15px 18px 16px;margin-bottom:14px}
+  .card-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:13px}
+  .card-head h2{font-size:13px;margin:0;font-weight:660;letter-spacing:.01em;display:flex;align-items:center;gap:8px}
+  .card-head .hint{font-size:11.5px;color:#98a2b3}
+  .card-head .hint b{color:#475467}
+  .count{background:#f2f4f7;color:#475467;font-size:10.5px;font-weight:700;border-radius:999px;padding:1px 7px}
+
+  /* ---------- pipeline ---------- */
+  .pbar{display:flex;height:40px;gap:2px;margin-bottom:13px}
+  .seg{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;cursor:pointer;transition:opacity .15s,filter .15s,box-shadow .15s;border:0;padding:0;font:inherit}
+  .seg:first-child{border-radius:9px 0 0 9px}
+  .seg:last-child{border-radius:0 9px 9px 0}
+  .seg span{font-size:11.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 6px;letter-spacing:.01em}
+  .seg:hover{filter:brightness(.94)}
+  .seg.dim{opacity:.28}
+  .seg.on{z-index:3;box-shadow:0 0 0 2px #fff,0 0 0 4px #101828}
+  .seg.on:hover{filter:none}
+  .activebar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:#eff5ff;border:1px solid #d3e2ff;border-radius:8px;padding:7px 10px;margin:-2px 0 12px;font-size:12px;color:#1d4ed8}
+  .activebar .t{font-weight:750}
+  .activebar .c{color:#5b7fc7;font-weight:550}
+  .activebar .spacer{flex:1}
+  .activebar button{border:1px solid #b2ccff;background:#fff;color:#1d4ed8;border-radius:6px;padding:2px 9px;font:inherit;font-size:11.5px;font-weight:600;cursor:pointer}
+  .activebar button:hover{background:#f5f9ff}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(272px,1fr));gap:2px 20px}
+  .lg{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;margin-left:-6px;cursor:pointer;border-radius:6px;transition:background .12s}
+  .lg:hover{background:#f8fafc}
+  .lg .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .lg .nm{color:#344054;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lg .n{margin-left:auto;font-variant-numeric:tabular-nums;color:#101828;font-weight:650;padding-left:8px}
+  .lg .p{color:#98a2b3;width:44px;text-align:right;font-variant-numeric:tabular-nums;font-size:11.5px}
+  .lg.on{background:#f0f5ff}
+  .lg.on .nm{color:#1d4ed8;font-weight:600}
+
+  /* ---------- modules table ---------- */
+  table.mod{width:100%;border-collapse:collapse;table-layout:fixed}
+  table.mod th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#98a2b3;font-weight:700;text-align:left;padding:0 10px 8px;border-bottom:1px solid #eaecf0;white-space:nowrap}
+  table.mod th.r,table.mod td.r{text-align:right}
+  table.mod td{padding:8px 10px;border-bottom:1px solid #f2f4f7;vertical-align:middle}
+  table.mod tr.row{cursor:pointer}
+  table.mod tr.row:hover td{background:#fafbfc}
+  table.mod tr.row.on td{background:#eff5ff}
+  table.mod tr.row.on td:first-child{box-shadow:inset 3px 0 0 #2563eb}
+  .mcode{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-weight:700;font-size:13px;letter-spacing:-.2px}
+  .split{display:flex;gap:4px;align-items:center;font-size:11.5px;font-variant-numeric:tabular-nums}
+  .sbadge{font-size:10px;font-weight:700;padding:1px 6px;border-radius:5px;font-variant-numeric:tabular-nums}
+  .sbadge.s{background:#eef2ff;color:#4338ca}
+  .sbadge.f{background:#fff7ed;color:#c2410c}
+  .sbar{display:flex;gap:1.5px;height:9px;border-radius:4px;overflow:hidden;background:#f2f4f7;min-width:60px}
+  .sbar i{display:block;height:100%}
+  .mfgchips{display:flex;gap:4px;flex-wrap:wrap}
+  .mchip{font-size:10.5px;background:#f2f4f7;color:#475467;border-radius:5px;padding:1px 6px;white-space:nowrap}
+  .mchip b{color:#101828;font-weight:650}
+  .prog{display:flex;align-items:center;gap:7px;justify-content:flex-end}
+  .prog .track{width:44px;height:5px;border-radius:3px;background:#f2f4f7;overflow:hidden;flex:none}
+  .prog .fill{height:100%;background:#059669;border-radius:3px}
+  .prog .pc{font-size:11.5px;font-variant-numeric:tabular-nums;color:#344054;font-weight:600;width:38px;text-align:right}
+
+  /* ---------- manufacturer list ---------- */
+  .mlist{max-height:392px;overflow:auto;margin:-4px -6px 0;padding:0 6px}
+  .mrow{display:grid;grid-template-columns:minmax(0,1fr) 34px 74px 40px;gap:10px;align-items:center;padding:5px 7px;border-radius:7px;cursor:pointer;transition:background .12s}
+  .mrow:hover{background:#f8fafc}
+  .mrow.on{background:#eff5ff}
+  .mrow .nm{font-size:12.5px;font-weight:550;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#344054}
+  .mrow.on .nm{color:#1d4ed8;font-weight:650}
+  .mrow .n{font-size:12px;font-variant-numeric:tabular-nums;text-align:right;color:#101828;font-weight:650}
+  .mrow .md{font-size:11px;color:#98a2b3;text-align:right;font-variant-numeric:tabular-nums}
+
+  /* ---------- two column ---------- */
+  .cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;margin-bottom:14px;align-items:start}
+  .cols .card{margin-bottom:0}
+
+  /* ---------- type split ---------- */
+  .splitrow{display:flex;gap:10px;margin-bottom:14px}
+  .sbox{flex:1;border:1px solid #eaecf0;border-radius:10px;padding:11px 13px}
+  .sbox .t{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;color:#98a2b3}
+  .sbox .v{font-size:21px;font-weight:700;letter-spacing:-.4px;margin-top:3px;font-variant-numeric:tabular-nums}
+  .sbox .m{font-size:11px;color:#98a2b3;margin-top:1px}
+  .duo{display:flex;height:11px;border-radius:5px;overflow:hidden;gap:2px;margin-bottom:15px}
+  .duo i{display:block;height:100%}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px dashed #eaecf0}
+  .kv:last-child{border-bottom:0}
+  .kv .k{color:#667085}
+  .kv .v{font-weight:650;font-variant-numeric:tabular-nums}
+
+  /* ---------- toolbar ---------- */
+  .toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:13px}
+  .search{position:relative;flex:1;min-width:220px;max-width:340px}
+  .search input{width:100%;border:1px solid #e4e7ec;background:#fff;border-radius:8px;padding:7px 11px 7px 31px;font:inherit;font-size:12.5px;color:#101828;outline:none;transition:.15s}
+  .search input:focus{border-color:#93b4fd;box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:13px;height:13px;stroke:#98a2b3;fill:none;stroke-width:2}
+  .btn{border:1px solid #e4e7ec;background:#fff;border-radius:8px;padding:6px 11px;font:inherit;font-size:12px;font-weight:550;color:#475467;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:.12s}
+  .btn:hover{background:#f8fafc;border-color:#d0d5dd}
+  .btn.on{background:#eff5ff;border-color:#b2ccff;color:#1d4ed8}
+  .fchip{display:inline-flex;align-items:center;gap:6px;background:#eff5ff;border:1px solid #d3e2ff;color:#1d4ed8;border-radius:999px;padding:3px 6px 3px 10px;font-size:11.5px;font-weight:600}
+  .fchip button{border:0;background:transparent;color:#1d4ed8;cursor:pointer;font-size:14px;line-height:1;padding:0 3px;opacity:.6}
+  .fchip button:hover{opacity:1}
+
+  /* ---------- groups ---------- */
+  .grp{border:1px solid #eaecf0;border-radius:10px;margin-bottom:8px;overflow:hidden;background:#fff}
+  .grp-head{display:flex;align-items:center;gap:9px;width:100%;background:#fcfcfd;border:0;padding:9px 13px;cursor:pointer;font:inherit;text-align:left;transition:background .12s}
+  .grp-head:hover{background:#f7f9fb}
+  .gname{font-weight:660;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px}
+  .badge{font-size:9.5px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;padding:2px 6px;border-radius:5px;flex:none}
+  .badge.std{background:#eef2ff;color:#4338ca}
+  .badge.fab{background:#fff7ed;color:#c2410c}
+  .gmeta{color:#98a2b3;font-size:11px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .gbar{width:120px;margin-left:auto;flex:none}
+  .chev{color:#98a2b3;flex:none;transition:transform .18s;display:flex}
+  .grp.open .chev{transform:rotate(90deg)}
+  .grp-body{display:none;border-top:1px solid #eaecf0}
+  .grp.open .grp-body{display:block}
+  table.it{width:100%;border-collapse:collapse;table-layout:fixed}
+  table.it td{padding:5px 13px;border-bottom:1px solid #f5f6f8;font-size:12px;vertical-align:top}
+  table.it tr:last-child td{border-bottom:0}
+  table.it tbody tr:hover td{background:#fcfcfd}
+  table.it tr.more td{background:#fcfcfd;padding:7px 13px}
+  table.it tr.more .btn{font-size:11.5px;padding:3px 10px}
+  .it .mpn{font-family:"SF Mono",ui-monospace,Consolas,monospace;font-size:11.5px;color:#101828;word-break:break-word;line-height:1.45}
+  .it .dsc{color:#344054;line-height:1.4}
+  .it .dsc em{display:block;font-style:normal;color:#b0b8c4;font-size:10px;font-family:"SF Mono",ui-monospace,Consolas,monospace;margin-top:2px}
+  .it .qty{text-align:right;font-variant-numeric:tabular-nums;font-weight:650;color:#101828;white-space:nowrap}
+  .it .stl{white-space:nowrap}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:650;padding:2px 8px 2px 6px;border-radius:999px;white-space:nowrap;margin:1px 2px 1px 0}
+  .pill i{width:5px;height:5px;border-radius:50%;flex:none}
+  .mult{font-size:9.5px;color:#667085;background:#f2f4f7;border-radius:4px;padding:1px 5px;font-weight:700;margin-left:5px;vertical-align:1px}
+  .empty{padding:34px 10px;text-align:center;color:#98a2b3;font-size:12.5px}
+  .empty b{display:block;color:#475467;font-size:13px;margin-bottom:3px}
+
+  .foot{margin-top:18px;padding-top:14px;border-top:1px solid #e4e7ec;color:#98a2b3;font-size:11px;line-height:1.75}
+  .foot b{color:#667085;font-weight:650}
+  .foot code{font-family:"SF Mono",ui-monospace,Consolas,monospace;background:#f2f4f7;border-radius:4px;padding:1px 5px;font-size:10.5px;color:#475467}
+
+  @media (max-width:1180px){
+    .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .cols{grid-template-columns:1fr}
+  }
+  @media (max-width:760px){
+    .wrap{padding:16px 14px 30px}
+    .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .top{flex-direction:column}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top">
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2.8 21 7.4v9.2L12 21.2 3 16.6V7.4z"/><path d="M3 7.4l9 4.6 9-4.6M12 12v9.2"/></svg>
+      </div>
+      <div>
+        <h1>BOM Procurement Status Overview</h1>
+        <p class="sub">Project <b id="mProj"></b> · Line <b id="mLine"></b> · Assy <b id="mAssy"></b> &nbsp;|&nbsp; <span id="mRows"></span> BOM lines · <span id="mQty"></span> pcs</p>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="tag live">Snapshot</div>
+      <div class="tag warn" id="exclTag" style="display:none"></div>
+      <div class="tag" id="mVer"></div>
+      <div class="tag"><span class="k">Source</span> <span id="mSrc"></span></div>
+      <div class="tag"><span class="k">Updated</span> 28 Oct 2026</div>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Procurement status pipeline</h2>
+      <span class="hint">Click a stage to filter the parts list ↓</span>
+    </div>
+    <div class="pbar" id="pbar"></div>
+    <div class="activebar" id="activeBar" style="display:none"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Modules <span class="count" id="modCount"></span></h2>
+      <span class="hint">Grouped by module number · click a row to list its part groups</span>
+    </div>
+    <table class="mod">
+      <colgroup>
+        <col style="width:78px"><col style="width:62px"><col style="width:104px">
+        <col style="width:190px"><col><col style="width:110px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Module</th><th class="r">Lines</th><th>Std / Fab</th>
+          <th>Status mix</th><th>Standard-part manufacturers</th><th class="r">PO issued</th>
+        </tr>
+      </thead>
+      <tbody id="modBody"></tbody>
+    </table>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <div class="card-head">
+        <h2>Standard parts by manufacturer <span class="count" id="mfgCount"></span></h2>
+        <span class="hint">Merge key = ManufacturerPN</span>
+      </div>
+      <div class="mlist" id="mfgList"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Part type split</h2>
+        <span class="hint">Source column 6 · PartType</span>
+      </div>
+      <div class="splitrow">
+        <div class="sbox">
+          <div class="t">Standard</div>
+          <div class="v" id="stdN"></div>
+          <div class="m" id="stdM"></div>
+        </div>
+        <div class="sbox">
+          <div class="t">Fabrication</div>
+          <div class="v" id="fabN"></div>
+          <div class="m" id="fabM"></div>
+        </div>
+      </div>
+      <div class="duo" id="duo"></div>
+      <div id="typeStatus"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Parts explorer <span class="count" id="exCount"></span></h2>
+      <span class="hint" id="exScope">All modules · grouped by manufacturer</span>
+    </div>
+    <div class="toolbar">
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="q" placeholder="Search part no., description or manufacturer…">
+      </div>
+      <button class="btn" id="mergeBtn"></button>
+      <button class="btn" id="expandBtn">Expand all</button>
+      <span id="fchips" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+    </div>
+    <div id="groups"></div>
+  </div>
+
+  <div class="foot">
+    <div id="exclNote" style="display:none;background:#fffaeb;border:1px solid #fedf89;border-radius:9px;padding:10px 13px;margin-bottom:13px;color:#93370d;line-height:1.6"></div>
+    <b>How this is grouped.</b> Every line is assigned to its <b>module number</b> (segment 4 of the part number, e.g. <code>6100</code>). Inside a module, standard parts are grouped under their <b>manufacturer</b> and merged on <b>ManufacturerPN</b>; fabrication parts are kept separate and merged on <b>ManufacturerPN + Description</b>. The optional <code>-6000-</code> segment is ignored when comparing part numbers, so <code>T-001707-01-6100-6000-2001_A</code> and <code>T-001707-01-6100-2001_A</code> are the same item.<br>
+    <b>Part type.</b> This export carries no PartType column, so type is derived from ManufacturerPN: an internal <code>T-…</code> number means fabrication (all of which are manufacturer <code>PIXEL</code>), anything else is a purchased standard part. Manufacturer names are normalised (<code>SINHONG</code> → <code>SIN HONG</code>).
+    <div id="footVer" style="margin-top:7px;color:#b0b8c4"></div>
+  </div>
+</div>
+
+<script>
+const ROWS = __DATA__.map(a => ({m:a[0], pn:a[1], d:a[2], mf:a[3], mpn:a[4], q:a[5], s:a[6], t:a[7]}));
+const META = __META__;
+
+const KNOWN = [
+  // Order is inferred from the wording; statuses absent from the data are dropped at runtime.
+  {k:"Procurement link not verified",        c:"#cbd5e1", short:"Link unverified", dark:1},
+  {k:"Pending for RFQ",                     c:"#94a3b8", short:"Pending RFQ",   dark:0},
+  {k:"Awaiting quotation",                  c:"#a78bfa", short:"Awaiting quote",dark:0},
+  {k:"Quotation received",                  c:"#38bdf8", short:"Quote received",dark:1},
+  {k:"Quotation reconfirmation required",   c:"#fb923c", short:"Quote reconf.", dark:1},
+  {k:"Awaiting Operations Manager approval", c:"#f472b6", short:"Ops Mgr appr.", dark:1},
+  {k:"Awaiting MD approval",                c:"#fbbf24", short:"Awaiting MD",   dark:1},
+  {k:"Approved - available to Purchase",    c:"#34d399", short:"Approved",      dark:1},
+  {k:"PO issued",                           c:"#059669", short:"PO issued",     dark:0},
+  {k:"Denied by MD",                        c:"#ef4444", short:"Denied",        dark:0},
+  {k:"Previous RFQs cancelled",             c:"#9ca3af", short:"RFQ cancelled", dark:0}
+];
+const found = [...new Set(ROWS.map(r => r.s))];
+const STATUS = KNOWN.filter(x => found.includes(x.k))
+  .concat(found.filter(k => !KNOWN.some(x => x.k === k)).map(k => ({k, c:"#cbd5e1", short:k, dark:1})));
+const SC = {}; STATUS.forEach(x => SC[x.k] = x.c);
+const DARKTXT = {}; STATUS.forEach(x => DARKTXT[x.k] = x.dark);
+
+const fmt = n => Number(n).toLocaleString("en-US");
+const pct = (n, t) => t ? (n / t * 100) : 0;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// part numbers compare equal when the optional -6000- segment is dropped
+const keyPN = s => String(s).toUpperCase().replace(/-6000-/g, "-");
+
+const state = { module:null, mfg:null, status:null, q:"", merge:true, expanded:new Set(), full:new Set(), sig:"" };
+
+/* ---------- header ---------- */
+const EXCL = META.excluded || [];
+const VER = META.version || "1.0";
+document.getElementById("mProj").textContent = META.project;
+document.getElementById("mLine").textContent = META.line;
+document.getElementById("mAssy").textContent = META.assy;
+document.getElementById("mSrc").textContent  = META.source;
+document.getElementById("mVer").textContent  = "v" + VER;
+document.getElementById("mRows").textContent = EXCL.length ? `${fmt(ROWS.length)} of ${fmt(META.totalRows)}` : fmt(ROWS.length);
+document.getElementById("mQty").textContent  = fmt(ROWS.reduce((a, r) => a + r.q, 0));
+document.title = `DOAS BOM — Procurement Status${EXCL.length ? ` (excl. ${EXCL.join(", ")})` : ""} v${VER}`;
+
+if (EXCL.length) {
+  const t = document.getElementById("exclTag");
+  t.textContent = "Excludes module " + EXCL.join(", ");
+  t.style.display = "flex";
+  const s = META.exclStats;
+  document.getElementById("exclNote").innerHTML =
+    `<b>Filtered view.</b> Module ${EXCL.join(", ")} is excluded from every figure on this page — ` +
+    `${s.lines} lines (${s.std} standard, ${s.fab} fabrication), qty ${fmt(s.qty)}, ${s.po} of them PO issued. ` +
+    `This view covers ${fmt(ROWS.length)} of the ${fmt(META.totalRows)} BOM lines; the full dashboard has the complete set.`;
+  document.getElementById("exclNote").style.display = "block";
+}
+
+/* ---------- aggregates ---------- */
+const byMod = new Map();
+ROWS.forEach(r => {
+  let o = byMod.get(r.m);
+  if (!o) { o = {m:r.m, n:0, s:0, f:0, q:0, st:{}, mf:{}}; byMod.set(r.m, o); }
+  o.n++; o.q += r.q; o.st[r.s] = (o.st[r.s] || 0) + 1;
+  if (r.t === "S") { o.s++; o.mf[r.mf] = (o.mf[r.mf] || 0) + 1; } else o.f++;
+});
+const MODULES = [...byMod.values()].sort((a, b) => a.m.localeCompare(b.m));
+
+const byMfg = new Map();
+ROWS.filter(r => r.t === "S").forEach(r => {
+  let o = byMfg.get(r.mf);
+  if (!o) { o = {mf:r.mf, n:0, st:{}, mods:new Set()}; byMfg.set(r.mf, o); }
+  o.n++; o.st[r.s] = (o.st[r.s] || 0) + 1; o.mods.add(r.m);
+});
+const MFGS = [...byMfg.values()].sort((a, b) => b.n - a.n);
+
+const TOT = ROWS.length;
+const STD = ROWS.filter(r => r.t === "S").length;
+const FAB = TOT - STD;
+const byStatus = {}; ROWS.forEach(r => byStatus[r.s] = (byStatus[r.s] || 0) + 1);
+const poN = byStatus["PO issued"] || 0;
+
+/* ---------- kpi ---------- */
+const KPI = [
+  {lab:"BOM lines",        val:fmt(TOT),  note:`<b>${fmt(ROWS.reduce((a,r)=>a+r.q,0))}</b> pcs total qty`, a:"#2563eb"},
+  {lab:"Modules",          val:MODULES.length, note:`module range <b>${MODULES[0].m} – ${MODULES[MODULES.length-1].m}</b>`, a:"#7c3aed"},
+  {lab:"Standard parts",   val:fmt(STD),  note:`<b>${MFGS.length}</b> manufacturers · ${pct(STD,TOT).toFixed(0)}% of lines`, a:"#4338ca"},
+  {lab:"Fabrication parts",val:fmt(FAB),  note:`internal · PIXEL · ${pct(FAB,TOT).toFixed(0)}% of lines`, a:"#c2410c"},
+  {lab:"PO issued",        val:fmt(poN),  note:`<b>${pct(poN,TOT).toFixed(1)}%</b> of all lines`, a:"#059669"},
+  {lab:"Blocked",          val:fmt((byStatus["Denied by MD"]||0)+(byStatus["Previous RFQs cancelled"]||0)),
+   note:`${byStatus["Denied by MD"]||0} denied · ${byStatus["Previous RFQs cancelled"]||0} cancelled`, a:"#ef4444"}
+];
+document.getElementById("kpis").innerHTML = KPI.map(k => `
+  <div class="kpi" style="--a:${k.a}">
+    <div class="lab">${k.lab}</div>
+    <div class="val">${k.val}</div>
+    <div class="note">${k.note}</div>
+  </div>`).join("");
+
+/* ---------- stacked bar ---------- */
+function stackBar(st, total, h) {
+  const segs = STATUS.filter(x => st[x.k]).map(x =>
+    `<i style="background:${x.c};flex:${st[x.k]} 0 0" title="${esc(x.k)}: ${st[x.k]} (${pct(st[x.k],total).toFixed(1)}%)"></i>`).join("");
+  return `<div class="sbar" style="height:${h}px">${segs}</div>`;
+}
+
+/* ---------- pipeline ---------- */
+function renderPipeline() {
+  document.getElementById("pbar").innerHTML = STATUS.map(x => {
+    const n = byStatus[x.k] || 0, p = pct(n, TOT);
+    const sel = state.status === x.k;
+    const dim = state.status && !sel ? " dim" : "";
+    const col = DARKTXT[x.k] ? "#3f2d00" : "#fff";
+    return `<button class="seg${dim}${sel ? " on" : ""}" data-st="${esc(x.k)}" style="flex:${n} 0 48px;background:${x.c};color:${col}" title="${esc(x.k)}: ${n} lines (${p.toFixed(1)}%)">
+      <span>${n}</span></button>`;
+  }).join("");
+
+  document.getElementById("legend").innerHTML = STATUS.map(x => {
+    const n = byStatus[x.k] || 0;
+    return `<div class="lg${state.status === x.k ? " on" : ""}" data-st="${esc(x.k)}" title="${esc(x.k)}">
+      <span class="dot" style="background:${x.c}"></span>
+      <span class="nm">${esc(x.k)}</span>
+      <span class="n">${n}</span><span class="p">${pct(n, TOT).toFixed(1)}%</span>
+    </div>`;
+  }).join("");
+
+  const bar = document.getElementById("activeBar");
+  if (state.status) {
+    const n = byStatus[state.status] || 0;
+    bar.style.display = "flex";
+    bar.innerHTML = `<span class="t">Filtered to “${esc(state.status)}”</span>
+      <span class="c">${n} of ${TOT} lines · ${pct(n, TOT).toFixed(1)}%</span>
+      <span class="spacer"></span>
+      <button data-jump="1">Show the list ↓</button>
+      <button data-clearbar="1">Clear</button>`;
+  } else {
+    bar.style.display = "none";
+    bar.innerHTML = "";
+  }
+}
+
+/* ---------- modules ---------- */
+function renderModules() {
+  document.getElementById("modCount").textContent = MODULES.length;
+  document.getElementById("modBody").innerHTML = MODULES.map(o => {
+    const po = o.st["PO issued"] || 0;
+    const top = Object.entries(o.mf).sort((a, b) => b[1] - a[1]).slice(0, 3)
+      .map(([k, v]) => `<span class="mchip">${esc(k)} <b>${v}</b></span>`).join("");
+    return `<tr class="row${state.module === o.m ? " on" : ""}" data-mod="${esc(o.m)}">
+      <td><span class="mcode">${esc(o.m)}</span></td>
+      <td class="r"><b style="font-variant-numeric:tabular-nums">${o.n}</b></td>
+      <td><span class="split"><span class="sbadge s">${o.s}</span><span class="sbadge f">${o.f}</span></span></td>
+      <td>${stackBar(o.st, o.n, 9)}</td>
+      <td><div class="mfgchips">${top || '<span class="mchip">—</span>'}</div></td>
+      <td><div class="prog"><div class="track"><div class="fill" style="width:${pct(po, o.n).toFixed(0)}%"></div></div><span class="pc">${pct(po, o.n).toFixed(0)}%</span></div></td>
+    </tr>`;
+  }).join("");
+}
+
+/* ---------- manufacturers ---------- */
+function renderMfg() {
+  document.getElementById("mfgCount").textContent = MFGS.length;
+  document.getElementById("mfgList").innerHTML = MFGS.map(o => `
+    <div class="mrow${state.mfg === o.mf ? " on" : ""}" data-mf="${esc(o.mf)}" title="${esc(o.mf)} — ${o.n} lines">
+      <span class="nm">${esc(o.mf)}</span>
+      <span class="n">${o.n}</span>
+      ${stackBar(o.st, o.n, 7)}
+      <span class="md">${o.mods.size} mod</span>
+    </div>`).join("");
+}
+
+/* ---------- type split ---------- */
+document.getElementById("stdN").textContent = fmt(STD);
+document.getElementById("stdM").textContent = `${pct(STD,TOT).toFixed(1)}% · ${MFGS.length} manufacturers`;
+document.getElementById("fabN").textContent = fmt(FAB);
+document.getElementById("fabM").textContent = `${pct(FAB,TOT).toFixed(1)}% · internal PIXEL`;
+document.getElementById("duo").innerHTML =
+  `<i style="background:#4338ca;flex:${STD} 0 0" title="Standard: ${STD}"></i><i style="background:#ea580c;flex:${FAB} 0 0" title="Fabrication: ${FAB}"></i>`;
+
+function typeStatusTable() {
+  const rows = [
+    {t:"Standard", set: ROWS.filter(r => r.t === "S")},
+    {t:"Fabrication", set: ROWS.filter(r => r.t === "F")}
+  ];
+  return rows.map(g => {
+    const st = {}; g.set.forEach(r => st[r.s] = (st[r.s] || 0) + 1);
+    const done = (st["PO issued"] || 0) + (st["Approved - available to Purchase"] || 0);
+    return `<div class="kv"><span class="k">${g.t} — PO issued / approved</span><span class="v">${pct(done, g.set.length).toFixed(1)}%</span></div>`;
+  }).join("") +
+  `<div class="kv"><span class="k">Still in RFQ / quotation</span><span class="v">${(byStatus["Pending for RFQ"]||0)+(byStatus["Awaiting quotation"]||0)+(byStatus["Quotation received"]||0)+(byStatus["Quotation reconfirmation required"]||0)}</span></div>
+   <div class="kv"><span class="k">Awaiting MD approval</span><span class="v">${byStatus["Awaiting MD approval"]||0}</span></div>
+   <div class="kv"><span class="k">Unique standard ManufacturerPNs</span><span class="v">${new Set(ROWS.filter(r=>r.t==="S").map(r=>r.mpn.toUpperCase())).size}</span></div>
+   <div class="kv"><span class="k">Unique fabrication parts (PN + desc.)</span><span class="v">${new Set(ROWS.filter(r=>r.t==="F").map(r=>r.mpn.toUpperCase()+"|"+r.d.toUpperCase())).size}</span></div>`;
+}
+document.getElementById("typeStatus").innerHTML = typeStatusTable();
+
+/* ---------- explorer ---------- */
+function visible() {
+  const q = state.q.trim().toLowerCase();
+  return ROWS.filter(r => {
+    if (state.module && r.m !== state.module) return false;
+    if (state.mfg && r.mf !== state.mfg) return false;
+    if (state.status && r.s !== state.status) return false;
+    if (q && !(r.pn + " " + r.d + " " + r.mpn + " " + r.mf).toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function buildGroups(rows) {
+  const map = new Map();
+  rows.forEach(r => {
+    const gk = r.t === "F" ? "__FAB__" : r.mf;
+    if (!map.has(gk)) map.set(gk, {key:gk, name:r.t === "F" ? "Internal fabrication" : r.mf, type:r.t, rows:[], items:new Map()});
+    const g = map.get(gk);
+    g.rows.push(r);
+    const ik = r.t === "F" ? r.mpn.toUpperCase() + "|" + r.d.toUpperCase() : r.mpn.toUpperCase();
+    if (!g.items.has(ik)) g.items.set(ik, {mpn:r.mpn, desc:r.d, q:0, pns:[], st:{}, n:0});
+    const it = g.items.get(ik);
+    it.q += r.q; it.n++;
+    it.st[r.s] = (it.st[r.s] || 0) + 1;
+    if (!it.pns.includes(r.pn)) it.pns.push(r.pn);
+  });
+  return [...map.values()].sort((a, b) => a.type === b.type ? b.rows.length - a.rows.length : (a.type === "F" ? -1 : 1));
+}
+
+function pill(s) {
+  return `<span class="pill" style="background:${SC[s] || "#cbd5e1"}1f;color:${s === "Denied by MD" ? "#b42318" : "#344054"}">
+    <i style="background:${SC[s] || "#cbd5e1"}"></i>${esc(s)}</span>`;
+}
+
+function renderExplorer() {
+  const rows = visible();
+  const groups = buildGroups(rows);
+
+  const sig = [state.module, state.mfg, state.status, state.q, state.merge].join("|");
+  if (sig !== state.sig) {
+    state.sig = sig;
+    state.expanded = new Set(
+      state.module
+        ? groups.map(g => g.key)
+        : groups.filter(g => g.type === "S").slice(0, 2).map(g => g.key)
+    );
+  }
+
+  document.getElementById("exCount").textContent = `${rows.length} lines`;
+  const scope = [];
+  if (state.module) scope.push("module " + state.module);
+  if (state.mfg) scope.push(state.mfg);
+  if (state.status) scope.push(state.status);
+  if (state.q) scope.push(`“${state.q}”`);
+  document.getElementById("exScope").textContent = scope.length
+    ? "Filtered: " + scope.join(" · ")
+    : "All modules · grouped by manufacturer";
+
+  document.getElementById("mergeBtn").className = "btn" + (state.merge ? " on" : "");
+  document.getElementById("mergeBtn").textContent = state.merge ? "✓ Merge on ManufacturerPN" : "Merge off (raw lines)";
+  document.getElementById("expandBtn").textContent =
+    groups.every(g => state.expanded.has(g.key)) ? "Collapse all" : "Expand all";
+
+  document.getElementById("fchips").innerHTML = scope.length
+    ? `<span class="fchip">${rows.length} of ${TOT} lines<button data-clear="1" title="Clear filters">×</button></span>`
+    : "";
+
+  if (!rows.length) {
+    document.getElementById("groups").innerHTML = `<div class="empty"><b>No lines match these filters</b>Try clearing the search or status filter.</div>`;
+    return;
+  }
+
+  document.getElementById("groups").innerHTML = groups.map(g => {
+    const open = state.expanded.has(g.key);
+    const gq = g.rows.reduce((a, r) => a + r.q, 0);
+    const st = {}; g.rows.forEach(r => st[r.s] = (st[r.s] || 0) + 1);
+    const items = [...g.items.values()].sort((a, b) => b.q - a.q || a.mpn.localeCompare(b.mpn));
+    const CAP = state.merge ? 40 : 60;
+    const full = state.full.has(g.key);
+    const shown = full ? items : items.slice(0, CAP);
+    const moreRow = (!full && items.length > CAP)
+      ? `<tr class="more"><td colspan="4"><button class="btn" data-more="${esc(g.key)}">Show all ${items.length} items ↓</button></td></tr>`
+      : "";
+
+    const body = state.merge
+      ? shown.map(it => `<tr>
+          <td class="mpn">${esc(it.mpn)}${it.n > 1 ? `<span class="mult">×${it.n}</span>` : ""}</td>
+          <td class="dsc">${esc(it.desc)}${it.pns.length > 1 ? `<em>${it.pns.length} part nos.</em>` : (it.pns[0] && keyPN(it.pns[0]) !== keyPN(it.mpn) ? `<em>${esc(it.pns[0])}</em>` : "")}</td>
+          <td class="qty">${fmt(it.q)}</td>
+          <td class="stl">${Object.keys(it.st).map(pill).join("")}</td>
+        </tr>`).join("")
+      : g.rows.slice().sort((a, b) => a.mpn.localeCompare(b.mpn)).map(r => `<tr>
+          <td class="mpn">${esc(r.mpn)}</td>
+          <td class="dsc">${esc(r.d)}<em>${esc(r.pn)}</em></td>
+          <td class="qty">${fmt(r.q)}</td>
+          <td class="stl">${pill(r.s)}</td>
+        </tr>`).join("");
+
+    return `<div class="grp${open ? " open" : ""}" data-g="${esc(g.key)}">
+      <button class="grp-head">
+        <span class="gname">${esc(g.name)}</span>
+        <span class="badge ${g.type === "F" ? "fab" : "std"}">${g.type === "F" ? "Fab" : "Std"}</span>
+        <span class="gmeta">${g.rows.length} lines · ${state.merge ? items.length + " merged" : "raw"} · qty ${fmt(gq)}</span>
+        <span class="gbar">${stackBar(st, g.rows.length, 8)}</span>
+        <span class="chev"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
+      <div class="grp-body">
+        <table class="it">
+          <colgroup><col style="width:230px"><col><col style="width:62px"><col style="width:210px"></colgroup>
+          <tbody>${body}${moreRow}</tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+/* ---------- events ---------- */
+document.getElementById("modBody").addEventListener("click", e => {
+  const tr = e.target.closest("tr.row"); if (!tr) return;
+  const m = tr.dataset.mod;
+  state.module = state.module === m ? null : m;
+  state.mfg = null;
+  renderModules(); renderMfg(); renderExplorer();
+  if (state.module) {
+    document.getElementById("groups").closest(".card")
+      .scrollIntoView({behavior:"smooth", block:"start"});
+  }
+});
+
+document.getElementById("mfgList").addEventListener("click", e => {
+  const r = e.target.closest(".mrow"); if (!r) return;
+  const mf = r.dataset.mf;
+  state.mfg = state.mfg === mf ? null : mf;
+  state.module = null;
+  renderModules(); renderMfg(); renderExplorer();
+});
+
+function explorerCard() { return document.getElementById("groups").closest(".card"); }
+
+function scrollToExplorer() {
+  const card = explorerCard(), r = card.getBoundingClientRect();
+  if (r.top > window.innerHeight - 160 || r.top < 0) {
+    card.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+}
+
+function toggleStatus(s) {
+  state.status = state.status === s ? null : s;
+  renderPipeline(); renderExplorer();
+  if (state.status) scrollToExplorer();
+}
+document.getElementById("pbar").addEventListener("click", e => {
+  const b = e.target.closest(".seg"); if (b) toggleStatus(b.dataset.st);
+});
+document.getElementById("legend").addEventListener("click", e => {
+  const l = e.target.closest(".lg"); if (l) toggleStatus(l.dataset.st);
+});
+document.getElementById("activeBar").addEventListener("click", e => {
+  if (e.target.closest("[data-jump]")) {
+    explorerCard().scrollIntoView({behavior:"smooth", block:"start"});
+  } else if (e.target.closest("[data-clearbar]")) {
+    toggleStatus(state.status);
+  }
+});
+
+document.getElementById("groups").addEventListener("click", e => {
+  const more = e.target.closest("[data-more]");
+  if (more) { state.full.add(more.dataset.more); renderExplorer(); return; }
+  const h = e.target.closest(".grp-head"); if (!h) return;
+  const g = h.closest(".grp"), k = g.dataset.g;
+  if (state.expanded.has(k)) state.expanded.delete(k); else state.expanded.add(k);
+  g.classList.toggle("open");
+});
+
+document.getElementById("mergeBtn").addEventListener("click", () => { state.merge = !state.merge; renderExplorer(); });
+document.getElementById("expandBtn").addEventListener("click", () => {
+  const all = [...document.querySelectorAll("#groups .grp")].map(g => g.dataset.g);
+  const allOpen = all.every(k => state.expanded.has(k));
+  state.expanded = allOpen ? new Set() : new Set(all);
+  renderExplorer();
+});
+document.getElementById("fchips").addEventListener("click", e => {
+  if (!e.target.closest("[data-clear]")) return;
+  state.module = state.mfg = state.status = null; state.q = "";
+  document.getElementById("q").value = "";
+  renderModules(); renderMfg(); renderPipeline(); renderExplorer();
+});
+
+let tid;
+document.getElementById("q").addEventListener("input", e => {
+  clearTimeout(tid);
+  tid = setTimeout(() => { state.q = e.target.value; renderExplorer(); }, 160);
+});
+
+/* ---------- boot ---------- */
+document.getElementById("footVer").textContent =
+  `Dashboard v${VER} · ${fmt(ROWS.length)} of ${fmt(META.totalRows)} BOM lines in scope · source ${META.source}`;
+renderPipeline(); renderModules(); renderMfg(); renderExplorer();
+<\/script>
+</body>
+</html>
+</script>
+<script>
+
+const $ = id => document.getElementById(id);
+const TPL = $("tpl").textContent.split("<\\/script>").join("<\/script>");
+
+const ALIASES = {
+  module: ["module","moduleno","modulenumber","mod"],
+  pn:     ["supplierpartno","partno","partnumber","supplierpn","itemno"],
+  desc:   ["itemdescription","description","desc","itemdesc"],
+  mfg:    ["manufacturer","mfr","manufacturername","vendor"],
+  mpn:    ["manufacturerpartno","mpn","mfrpartno","manufacturerpn"],
+  qty:    ["totalqty","qty","quantity","totalquantity"],
+  status: ["status","procurementstatus","postatus"]
+};
+const REQUIRED = ["module","pn","desc","mfg","mpn","status"];
+
+const normHeader = s => String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const squash = s => String(s == null ? "" : s).replace(/\s+/g, " ").trim();
+const normMfg = s => { const t = squash(s).toUpperCase(); return t === "SINHONG" ? "SIN HONG" : t; };
+const num = s => { const v = parseFloat(String(s == null ? "" : s).replace(/[,\s]/g, "")); return isFinite(v) ? v : 0; };
+
+/* ===================== text parsers ===================== */
+
+function detectDelim(line) {
+  const c = [["\t", (line.match(/\t/g) || []).length],
+             [",",  (line.match(/,/g)  || []).length],
+             [";",  (line.match(/;/g)  || []).length]];
+  c.sort((a, b) => b[1] - a[1]);
+  return c[0][1] > 0 ? c[0][0] : "\t";
+}
+
+/* Quote-aware, one record per line — used for CSV. */
+function parseDelimited(text, d) {
+  const rows = []; let row = [], cur = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += c;
+    } else if (c === '"' && cur === "") { q = true; }
+    else if (c === d) { row.push(cur); cur = ""; }
+    else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; }
+    else if (c === "\r") { /* ignore */ }
+    else cur += c;
+  }
+  if (cur !== "" || row.length) { row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(c => String(c).trim() !== ""));
+}
+
+/* Tab mode, tolerant of cells the browser wrapped over several lines.
+   A line containing a tab contributes new cells; a line with no tab is a
+   continuation of the cell that was left open on the previous line. */
+function parseTsvRepair(text) {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].trim() === "") i++;
+  if (i >= lines.length) throw new Error("Nothing to read.");
+
+  const header = lines[i].split("\t").map(s => s.trim());
+  const n = header.length;
+  if (n < 2) throw new Error("The first line does not look like a header row.");
+
+  const cells = [], rows = [];
+  let repaired = 0;
+  for (i = i + 1; i < lines.length; i++) {
+    const ln = lines[i];
+    if (ln.trim() === "") continue;
+    if (ln.includes("\t")) {
+      for (const p of ln.split("\t")) cells.push(p);
+    } else if (cells.length) {
+      cells[cells.length - 1] += ln;   // stitch the wrapped fragment back on
+      repaired++;
+    } else {
+      cells.push(ln);
+    }
+    while (cells.length >= n) rows.push(cells.splice(0, n));
+  }
+  if (cells.length) {
+    while (cells.length < n) cells.push("");
+    if (cells.some(c => String(c).trim() !== "")) rows.push(cells.slice(0, n));
+  }
+  return { header, rows, repaired, mode: repaired ? "web" : "tsv" };
+}
+
+function parseText(text) {
+  const firstLine = (text.split(/\r?\n/).find(l => l.trim() !== "") || "");
+  const d = detectDelim(firstLine);
+  if (d === "\t") {
+    const r = parseTsvRepair(text);
+    return { grid: [r.header, ...r.rows], mode: r.mode, repaired: r.repaired };
+  }
+  return { grid: parseDelimited(text, d), mode: "csv", repaired: 0 };
+}
+
+/* ===================== xlsx reader (no dependencies) ===================== */
+
+async function unzip(buf) {
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let eocd = -1;
+  const floor = Math.max(0, buf.length - 66000);
+  for (let i = buf.length - 22; i >= floor; i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error("Not a valid .xlsx (no ZIP directory found).");
+
+  const total = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for (let k = 0; k < total; k++) {
+    if (off + 46 > buf.length || dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const compSize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const commentLen = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(off + 46, off + 46 + nameLen));
+    const lNameLen = dv.getUint16(localOff + 26, true);
+    const lExtraLen = dv.getUint16(localOff + 28, true);
+    const start = localOff + 30 + lNameLen + lExtraLen;
+    out[name] = { method, raw: buf.subarray(start, start + compSize) };
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return out;
+}
+
+async function inflate(entry) {
+  if (entry.method === 0) return entry.raw;
+  if (typeof DecompressionStream === "undefined") {
+    throw new Error("This browser cannot open .xlsx directly. Save the sheet as CSV, or paste the rows instead.");
+  }
+  const s = new Blob([entry.raw]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+
+function colIndex(letters) {
+  let n = 0;
+  for (const ch of String(letters).toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64);
+  return n - 1;
+}
+
+function parseShared(xml) {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  return [...doc.getElementsByTagName("si")].map(si =>
+    [...si.getElementsByTagName("t")].map(t => t.textContent).join(""));
+}
+
+function parseSheet(xml, shared) {
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const byRow = {};
+  let maxRow = -1, maxCol = -1;
+  for (const row of doc.getElementsByTagName("row")) {
+    const r = (parseInt(row.getAttribute("r"), 10) || (maxRow + 2)) - 1;
+    const arr = [];
+    for (const c of row.getElementsByTagName("c")) {
+      const ref = c.getAttribute("r") || "";
+      const col = colIndex(ref.replace(/[0-9]/g, ""));
+      if (col < 0) continue;
+      const t = c.getAttribute("t");
+      let v = "";
+      if (t === "s") {
+        const idx = parseInt((c.getElementsByTagName("v")[0] || {}).textContent || "-1", 10);
+        v = shared[idx] == null ? "" : shared[idx];
+      } else if (t === "inlineStr") {
+        v = [...c.getElementsByTagName("t")].map(x => x.textContent).join("");
+      } else {
+        const el = c.getElementsByTagName("v")[0];
+        v = el ? el.textContent : "";
+      }
+      arr[col] = v;
+      if (col > maxCol) maxCol = col;
+    }
+    byRow[r] = arr;
+    if (r > maxRow) maxRow = r;
+  }
+  const grid = [];
+  for (let i = 0; i <= maxRow; i++) {
+    const src = byRow[i] || [];
+    const out = new Array(maxCol + 1).fill("");
+    for (let j = 0; j < src.length; j++) if (src[j] !== undefined) out[j] = src[j];
+    grid.push(out);
+  }
+  return grid.filter(r => r.some(c => String(c).trim() !== ""));
+}
+
+async function readXlsx(file) {
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const files = await unzip(buf);
+  const dec = new TextDecoder("utf-8");
+  const shared = files["xl/sharedStrings.xml"]
+    ? parseShared(dec.decode(await inflate(files["xl/sharedStrings.xml"])))
+    : [];
+  const key = Object.keys(files).filter(k => /^xl\/worksheets\/sheet\d+\.xml$/.test(k)).sort()[0];
+  if (!key) throw new Error("No worksheet found in this workbook.");
+  const xml = dec.decode(await inflate(files[key]));
+  const grid = parseSheet(xml, shared);
+  if (!grid.length) throw new Error("The first worksheet is empty.");
+  return grid;
+}
+
+/* ===================== grid -> rows ===================== */
+
+function gridToRows(grid) {
+  if (!grid || !grid.length) throw new Error("No data found.");
+  const head = grid[0].map(normHeader);
+  const idx = {};
+  REQUIRED.concat("qty").forEach(k => { idx[k] = head.findIndex(h => ALIASES[k].includes(h)); });
+
+  const missing = REQUIRED.filter(k => idx[k] < 0);
+  if (missing.length) {
+    throw new Error("Missing column(s): <b>" + missing.join(", ") + "</b>.<br>Header row found: <code>" +
+      grid[0].map(x => String(x).trim()).filter(Boolean).join(" | ").slice(0, 300) + "</code>");
+  }
+
+  const cell = (r, k) => (idx[k] >= 0 && r[idx[k]] != null) ? String(r[idx[k]]) : "";
+  const rows = [];
+  for (let i = 1; i < grid.length; i++) {
+    const g = grid[i];
+    if (!g) continue;
+    const module = cell(g, "module").trim();
+    if (!module) continue;
+    const mpn = squash(cell(g, "mpn"));
+    rows.push([
+      module,
+      cell(g, "pn").trim(),
+      squash(cell(g, "desc")),
+      normMfg(cell(g, "mfg")),
+      mpn,
+      num(cell(g, "qty")),
+      cell(g, "status").trim(),
+      /^T-/i.test(mpn) ? "F" : "S"
+    ]);
+  }
+  if (!rows.length) throw new Error("No rows with a module number were found.");
+  return rows;
+}
+
+/* ===================== build ===================== */
+
+function parsePn(pn) {
+  const a = String(pn || "").split("-");
+  const project = (a[0] && a[1]) ? a[0] + "-" + a[1] : (a[1] || "");
+  return { project, line: a[2] || "", assy: a[4] || "" };
+}
+
+function build(rows) {
+  const exclList = $("excl").value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  const set = new Set(exclList);
+  const keep = set.size ? rows.filter(r => !set.has(r[0])) : rows.slice();
+  const drop = set.size ? rows.filter(r => set.has(r[0])) : [];
+  if (!keep.length) throw new Error("Every row was excluded.");
+
+  const { project, line, assy } = parsePn(keep[0][1]);
+  const meta = {
+    project, line, assy,
+    source: (sourceNote || "pasted data"),
+    version: $("ver").value.trim() || "1.0",
+    rows: keep.length,
+    totalRows: rows.length,
+    excluded: exclList,
+    exclStats: {
+      lines: drop.length,
+      std: drop.filter(r => r[7] === "S").length,
+      fab: drop.filter(r => r[7] === "F").length,
+      qty: drop.reduce((a, r) => a + r[5], 0),
+      po: drop.filter(r => r[6] === "PO issued").length
+    }
+  };
+
+  const html = TPL
+    .replace("__DATA__", () => JSON.stringify(keep))
+    .replace("__META__", () => JSON.stringify(meta));
+
+  return {
+    html, meta,
+    modules: new Set(keep.map(r => r[0])).size,
+    mfgs: new Set(keep.filter(r => r[7] === "S").map(r => r[3])).size
+  };
+}
+
+function showLog(kind, html) { const el = $("log"); el.className = kind; el.innerHTML = html; }
+
+/* ===================== input state ===================== */
+
+let sourceGrid = null;   // set when an .xlsx is loaded
+let sourceNote = "";     // human label for the log
+
+function describe(mode, repaired, nRows, nMods) {
+  let s = `<b>${nRows.toLocaleString()}</b> rows &middot; ${nMods} modules`;
+  if (mode === "web") s += ` &middot; web copy repaired (<b>${repaired.toLocaleString()}</b> wrapped lines rejoined)`;
+  else if (mode === "xlsx") s += " &middot; read from workbook";
+  return s;
+}
+
+async function loadFile(f) {
+  try {
+    if (/\.xlsx$/i.test(f.name)) {
+      const grid = await readXlsx(f);
+      sourceGrid = grid; sourceNote = f.name;
+      $("paste").value = "";
+      const rows = gridToRows(grid);
+      $("drop").innerHTML = `Loaded <b>${f.name}</b> &middot; ${(f.size / 1024).toFixed(0)} KB`;
+      showLog("ok", "Read " + describe("xlsx", 0, rows.length, new Set(rows.map(r => r[0])).size) + ". Ready to build.");
+    } else {
+      const text = await f.text();
+      sourceGrid = null; sourceNote = f.name;
+      $("paste").value = text;
+      const p = parseText(text);
+      const rows = gridToRows(p.grid);
+      $("drop").innerHTML = `Loaded <b>${f.name}</b> &middot; ${(f.size / 1024).toFixed(0)} KB`;
+      showLog(p.repaired ? "warn" : "ok", "Read " + describe(p.mode, p.repaired, rows.length, new Set(rows.map(r => r[0])).size) + ".");
+    }
+  } catch (e) {
+    showLog("err", "<b>Cannot read that file.</b> " + e.message);
+  }
+}
+
+function run(previewOnly) {
+  try {
+    let grid, mode, repaired;
+    if (sourceGrid) { grid = sourceGrid; mode = "xlsx"; repaired = 0; }
+    else {
+      const p = parseText($("paste").value);
+      grid = p.grid; mode = p.mode; repaired = p.repaired;
+    }
+    const rows = gridToRows(grid);
+    const res = build(rows);
+    const m = res.meta;
+    const excl = m.excluded.length ? ` &middot; excluded <b>${m.excluded.join(", ")}</b> (${m.exclStats.lines} rows)` : "";
+    showLog(repaired ? "warn" : "ok",
+      `<b>Built.</b> ${describe(mode, repaired, rows.length, res.modules)} &middot; ${res.mfgs} standard-part manufacturers${excl}`);
+
+    if (previewOnly) {
+      const url = URL.createObjectURL(new Blob([res.html], { type: "text/html;charset=utf-8" }));
+      window.open(url, "_blank");
+    } else {
+      const name = ($("fname").value.trim() || "BOM Status Dashboard.html").replace(/\.html?$/i, "") + ".html";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([res.html], { type: "text/html;charset=utf-8" }));
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+  } catch (e) {
+    showLog("err", "<b>Cannot build.</b> " + e.message);
+  }
+}
+
+/* ===================== wiring ===================== */
+
+const drop = $("drop"), file = $("file"), paste = $("paste");
+const DROP_IDLE = drop.innerHTML;
+drop.addEventListener("click", () => file.click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("hot"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("hot"));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("hot");
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+file.addEventListener("change", () => { if (file.files.length) loadFile(file.files[0]); });
+
+/* Live read-back while pasting: shows what was understood, silently ignores
+   partial input so it never flashes an error mid-typing. */
+let tid;
+paste.addEventListener("input", () => {
+  sourceGrid = null;
+  drop.innerHTML = DROP_IDLE;
+  clearTimeout(tid);
+  tid = setTimeout(() => {
+    const text = paste.value.trim();
+    if (!text) { $("log").className = ""; return; }
+    try {
+      const p = parseText(text);
+      const rows = gridToRows(p.grid);
+      showLog(p.repaired ? "warn" : "ok",
+        "Read " + describe(p.mode, p.repaired, rows.length, new Set(rows.map(r => r[0])).size) + ". Ready to build.");
+    } catch (e) {
+      $("log").className = "";
+    }
+  }, 350);
+});
+
+$("build").addEventListener("click", () => run(false));
+$("preview").addEventListener("click", () => run(true));
+
+/* Keep the version in the file name, so a build never overwrites a previous one. */
+let nameTouched = false;
+$("fname").addEventListener("input", () => { nameTouched = true; });
+$("ver").addEventListener("input", () => {
+  if (nameTouched) return;
+  const v = $("ver").value.trim();
+  $("fname").value = "BOM Status Dashboard" + (v ? " v" + v : "") + ".html";
+});
+</script>
+</body>
+</html>
